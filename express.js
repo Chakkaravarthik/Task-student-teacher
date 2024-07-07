@@ -1,10 +1,14 @@
 import express from 'express'
 import teacherrouter from './Routes/teacherroutes.js';
 import studentroute from './Routes/studentsrouter.js';
+import mongooseconnecttoDB from './DB_utils/mongoosedb.js';
 
 
 // creating server
 const server = express();
+
+//db connect 
+await mongooseconnecttoDB();
 
 //middleware
 server.use(express.json());

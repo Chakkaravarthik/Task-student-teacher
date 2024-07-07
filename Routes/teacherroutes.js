@@ -1,5 +1,5 @@
 import express from 'express'
-import { teachers } from '../localdata/localvariables.js';
+import { studentModel, teacherModel } from '../DB_utils/model.js';
 
 //router creation
 
@@ -7,45 +7,69 @@ const teacherrouter = express.Router();
 
 //To get all teachers data
 teacherrouter.get('/', async (req,res)=>{
-    
-    res.send({teachers});
+    const teachers = await teacherModel.find({})
+    res.send(teachers);
 })
 
-// to a teacher
+// to a create teacher
 
 teacherrouter.post('/', async(req,res)=>{
     const {body}= req;
-    const teacherobj = {
+    const teacherobj = await new teacherModel({
         ...body,studentsid:[],id:Date.now().toString()
-    }
+    })
     if(teacherobj){
-        teachers.push(teacherobj)
+        await teacherobj.save();
         res.send({msg:'teacher added successfully'});
     }else{
         res.send({msg:'incorrect input '})
     }
 
 })
+ // here both student and teacher are assigned to one of them
 
-
-// assign student to teacher
 teacherrouter.put('/:teachid', async (req, res) => {
     const { teachid } = req.params;
-    console.log(teachid);
     const { studentid } = req.body;
-    console.log(studentid);
 
-    // Find teacher
+    // Log the received IDs
+    console.log(`Teacher ID: ${teachid}`);
+    console.log(`Student ID: ${studentid}`);
+
+    // Basic validation
+    if (!teachid || !studentid) {
+        return res.status(400).send({ msg: 'Teacher ID and Student ID are required' });
+    }
+
     try {
-        const teachindex = teachers.findIndex(ele => ele.id == teachid);
-        teachers[teachindex].studentsid.push(studentid);
+        // Find teacher
+        const teacher = await teacherModel.findOne({ id: teachid });
+
+        if (!teacher) {
+            return res.status(404).send({ msg: 'Teacher not found' });
+        }
+
+        // Update the teacher's student list
+        await teacherModel.updateOne({ id: teachid }, { $addToSet: { studentsId: studentid } }); // $addToSet to avoid duplicates
+
+        const student = await studentModel.findOne({id:studentid});
+
+        if(!student){
+            return res.status(404).send({ msg: 'Student not found' });
+        }
+
+        await studentModel.updateOne(
+            {id:studentid},
+            {$set:{currentteacherid: teachid}}
+        )
+
         res.status(200).send({ msg: 'Student assigned successfully' });
-        
-    }catch (e) {
-        console.log(e.message);
+    } catch (error) {
+        console.error(error.message);
         res.status(500).send({ msg: 'Error assigning student' });
     }
 });
+
 
 // students list of a particular teacher
 teacherrouter.get('/:teacherid', (req,res)=>{
